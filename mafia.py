@@ -1,7 +1,6 @@
 import discord
 from discord.ext import commands
 import random
-TOKEN = 'NzE3NDU5NjU2NzUwMDA2MzE0.XtaooA.3bsf0SoKYVNhOCwh7llJquxPpYs'
 bot = commands.Bot(command_prefix='!')
 num_maf = 2
 fut_cor = 0
