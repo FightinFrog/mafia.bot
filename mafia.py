@@ -1,143 +1,124 @@
 import discord
 from discord.ext import commands
 import random
-bot = commands.Bot(command_prefix='!')
-num_maf = 2
-fut_cor = 0
-num_fir = 1
-i = -1
-a = []
-per_id = []
-per_dict = dict()
-g = 0
-num_day = 0
-num_she = 0
-num_don = 0
-@bot.command(pass_context=True)
-async def roles(ctx2, n):
-    global a
-    global num_maf
-    global g
-    global num_day
-    global num_she
-    global per_id
-    num_day = 0
-    num_she = 0
-    n = int(n)
-    for j in range(n):
-        a.append('Мирный')
-    if n == 10 or n == 9:
-        a[0] = 'Шериф'
-        a[1] = 'Дон'
-        a[2] = 'Мафия'
-        a[3] = 'Мафия'
-        num_maf = 3
-    elif n == 8:
-        a[0] = 'Шериф'
-        a[1] = 'Дон'
-        a[2] = 'Мафия'
-        num_maf = 2
-    else:
-        a[0] = 'Дон'
-        a[1] = 'Мафия'
-        num_maf = 2
-    random.shuffle(a)
-    g = 0
-    per_id = ["0"]*len(a)
-    await ctx2.send('Роли готовы, можете разбирать')
-@bot.command(pass_context=True)
-async def my_role(ctx3):
-    global a
-    global g
-    global per_dict
-    await ctx3.author.send(a[g])
-    per_dict[ctx3.author.id] = a[g]
-    #print(per_dict)
-    #print(per_dict.get(ctx3.author.id))
-    if g == len(a)-1:
-        await ctx3.send('Все роли розданы, можете начинать игру')
-    g += 1
-@bot.command(pass_context=True)
-async def kill(ctx1, arg):
-    #await ctx1.channel.purge(limit = 1)
-    #print('агась')
-    global i
-    global fut_cor
-    global per_dict
-    global num_fir
-    if per_dict.get(ctx1.author.id) == 'Мафия' or per_dict.get(ctx1.author.id) == 'Дон':
-        i += 1
-        if i == 0:
-            fut_cor = arg
+
+class Game:
+    def __init__(self):
+        self.players = []
+        self.roles = []
+        self.num_maf = 2
+        self.k = 0
+        self.num_day = 0
+        self.num_sheriff_checks = 0
+        self.num_don_checks = 0
+        self.fut_cor = None
+        self.num_fir = 0
+
+    def assign_roles(self, n):
+        self.roles = ['Мирный'] * n
+        if n in [9, 10]:
+            self.roles[0] = 'Шериф'
+            self.roles[1] = 'Дон'
+            self.roles[2] = 'Мафия'
+            self.roles[3] = 'Мафия'
+            self.num_maf = 3
+        elif n == 8:
+            self.roles[0] = 'Шериф'
+            self.roles[1] = 'Дон'
+            self.roles[2] = 'Мафия'
+            self.num_maf = 2
+        elif n == 7:
+            self.roles[0] = 'Дон'
+            self.roles[1] = 'Мафия'
+            self.num_maf = 2
         else:
-            if arg == fut_cor:
-                num_fir+=1
-    else:
-        await ctx1.author.send('Ля ты крыса') 
+            return False
+        random.shuffle(self.roles)
+        return True
+
+    def get_role(self, player_id):
+        return self.roles[player_id]
+
+    def next_player(self):
+        if self.k < len(self.roles) - 1:
+            self.k += 1
+            return True
+        return False
+
+    def reset_day(self):
+        self.num_day += 1
+        self.num_fir = 0
+        self.k = 0
+
+game_instance = Game()
+bot = commands.Bot(command_prefix='!')
 
 @bot.command(pass_context=True)
-async def day(ctx5):
-    # await ctx1.channel.purge(limit = 1)
-    # print('агась')
-    global i
-    global fut_cor
-    global num_fir
-    global num_day
-    global num_don
-    global num_she
-    num_day += 1
-    await ctx5.send('Город просыпается')
-    print(num_fir)
-    print(num_maf)
-    print(fut_cor)
-    if num_fir == num_maf:
-        print('sdsd')
-        await ctx5.send('утро сегодня далеко не доброе, был убит игрок '+fut_cor)
-        num_fir = 0
-        i = -1
+async def roles(ctx, n: int):
+    if game_instance.assign_roles(n):
+        await ctx.send('Роли готовы, можете разбирать')
     else:
-        await ctx5.send('утро сегодня доброе, в городе несострел')
-        num_fir = 0
-        i = -1
+        await ctx.send('Проверьте количество игроков')
+
 @bot.command(pass_context=True)
-async def voting(ctx4, hanged):
-    global a
-    global num_maf
-    h = int(hanged)
-    if a[h-1] == 'Мафия' or a[h-1] == 'Дон':
-        num_maf-=1
+async def my_role(ctx):
+    player_id = game_instance.k
+    role = game_instance.get_role(player_id)
+    await ctx.author.send(role)
+    game_instance.next_player()
+    if game_instance.k == len(game_instance.roles):
+        await ctx.send('Все роли розданы, можете начинать игру')
+
 @bot.command(pass_context=True)
-async def sheriff(ctx, arg):
-    global a
-    global num_day
-    global num_she
-    global per_dict
-    if per_dict.get(ctx.author.id) == 'Шериф':
-        if num_she <= num_day:
-            if a[int(arg)-1] == 'Мирный':
-                await ctx.author.send('Красный')
-            else:
-                await ctx.author.send('Черный')
-            num_she += 1
+async def kill(ctx, arg):
+    role = game_instance.get_role(game_instance.k)
+    if role in ['Мафия', 'Дон']:
+        if game_instance.fut_cor is None:
+            game_instance.fut_cor = arg
+        elif arg == game_instance.fut_cor:
+            game_instance.num_fir += 1
+    else:
+        await ctx.author.send('Только мафия может выбирать жертву')
+
+@bot.command(pass_context=True)
+async def day(ctx):
+    game_instance.reset_day()
+    await ctx.send('Город просыпается')
+    if game_instance.num_fir == game_instance.num_maf:
+        await ctx.send(f'Утро сегодня не доброе, был убит игрок {game_instance.fut_cor}')
+    else:
+        await ctx.send('Утро сегодня доброе, в городе несострел')
+
+@bot.command(pass_context=True)
+async def voting(ctx, hanged: int):
+    if game_instance.roles[hanged - 1] in ['Мафия', 'Дон']:
+        game_instance.num_maf -= 1
+
+@bot.command(pass_context=True)
+async def sheriff(ctx, arg: int):
+    role = game_instance.get_role(ctx.author.id)
+    if role == 'Шериф':
+        if game_instance.num_sheriff_checks < game_instance.num_day:
+            result = 'Красный' if game_instance.roles[arg - 1] == 'Мирный' else 'Черный'
+            await ctx.author.send(result)
+            game_instance.num_sheriff_checks += 1
         else:
-            await ctx.author.send('прикольно вторую проверку за ночь делать?')
+            await ctx.author.send('Вы можете совершить только 1 проверку')
     else:
-        await ctx.author.send('ты кто такой, чтобы шерифскую проверку делать?')
+        await ctx.author.send('Только шериф может совершать проверку')
+
 @bot.command(pass_context=True)
-async def don(ctx5, arg):
-    global a
-    global num_day
-    global num_don
-    global per_dict
-    if per_dict.get(ctx5.author.id) == 'Дон':
-        if num_don <= num_day:
-            if a[int(arg)-1] == 'Шериф':
-                await ctx5.author.send('Шериф')
-            else:
-                await ctx5.author.send('Не шериф')
-            num_don+=1
+async def don(ctx, arg: int):
+    role = game_instance.get_role(ctx.author.id)
+    if role == 'Дон':
+        if game_instance.num_don_checks < game_instance.num_day:
+            result = 'Шериф' if game_instance.roles[arg - 1] == 'Шериф' else 'Не шериф'
+            await ctx.author.send(result)
+            game_instance.num_don_checks += 1
         else:
-            await ctx5.author.send('прикольно вторую проверку за ночь делать?')
+            await ctx.author.send('Вы можете совершить только 1 проверку')
     else:
-        await ctx5.author.send('ты кто такой, чтобы донскую проверку делать?')
-bot.run(TOKEN)
+        await ctx.author.send('Только дон может совершать проверку')
+
+
+bot.run(ТОКЕН)
