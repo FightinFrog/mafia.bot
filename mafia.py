@@ -121,4 +121,4 @@ async def don(ctx, arg: int):
         await ctx.author.send('Только дон может совершать проверку')
 
 
-bot.run(ТОКЕН)
+bot.run(TOKEN)
